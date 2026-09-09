@@ -1,0 +1,20 @@
+[
+  {
+    "name": "🗓 Onlayn yozilish",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Start the booking flow: choose service → date → time → name → phone → confirm"
+            }
+          }
+        ],
+        "send": {
+          "callback": "booking:start"
+        }
+      }
+    ]
+  }
+]
