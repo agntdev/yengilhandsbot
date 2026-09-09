@@ -51,6 +51,22 @@ interface Reminder {
   text: string;
 }
 
+interface StoredBooking {
+  booking_id: string;
+  service_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  patient_name: string;
+  patient_phone: string;
+  doctor: string;
+  clinic_address: string;
+  clinic_phone: string;
+  status: "confirmed" | "cancelled";
+  created_at: string;
+}
+interface SlotLock { token: string; expiresAt: number; }
+
 /**
  * createDurableSessionStorage — a grammY StorageAdapter that routes each session
  * key to its own ChatDO instance. Pass to buildBot({ storage }) in the Worker.
@@ -152,6 +168,67 @@ export class ChatDO {
       await this.state.storage.put("reminders", list);
       await this.rearm(list);
       return new Response(null, { status: 204 });
+    }
+
+    // The global "booking-store" instance is deliberately addressed by every
+    // handler with the same name. Durable Objects serialize requests to one
+    // instance, making the check-and-lock operation atomic across patients.
+    if (url.pathname.startsWith("/booking/") && request.method === "POST") {
+      const body = (await request.json()) as Record<string, unknown>;
+      const locks = (await this.state.storage.get<Record<string, SlotLock>>("booking-locks")) ?? {};
+      const bookings = (await this.state.storage.get<Record<string, StoredBooking>>("bookings")) ?? {};
+      const index = (await this.state.storage.get<string[]>("booking-index")) ?? [];
+      const slot = typeof body.date === "string" && typeof body.start === "string" ? `${body.date}:${body.start}` : "";
+      const live = slot ? locks[slot] : undefined;
+      if (live && live.expiresAt <= Date.now()) delete locks[slot];
+
+      if (url.pathname === "/booking/lock") {
+        const token = typeof body.token === "string" ? body.token : "";
+        const expiresAt = typeof body.expiresAt === "number" ? body.expiresAt : 0;
+        const booked = Object.values(bookings).some((b) => b.status === "confirmed" && `${b.date}:${b.start_time}` === slot);
+        if (!slot || !token || expiresAt <= Date.now() || booked || (locks[slot] && locks[slot].token !== token)) {
+          await this.state.storage.put("booking-locks", locks);
+          return Response.json({ ok: false });
+        }
+        locks[slot] = { token, expiresAt };
+        await this.state.storage.put("booking-locks", locks);
+        return Response.json({ ok: true });
+      }
+      if (url.pathname === "/booking/release") {
+        const token = typeof body.token === "string" ? body.token : "";
+        for (const key of Object.keys(locks)) if (locks[key].token === token) delete locks[key];
+        await this.state.storage.put("booking-locks", locks);
+        return Response.json({ ok: true });
+      }
+      if (url.pathname === "/booking/confirm") {
+        const token = typeof body.token === "string" ? body.token : "";
+        const draft = body.booking as Omit<StoredBooking, "booking_id" | "status"> | undefined;
+        const key = draft ? `${draft.date}:${draft.start_time}` : "";
+        const lock = locks[key];
+        const alreadyBooked = Object.values(bookings).some((b) => b.status === "confirmed" && `${b.date}:${b.start_time}` === key);
+        if (!draft || !lock || lock.token !== token || lock.expiresAt <= Date.now() || alreadyBooked) return Response.json({ ok: false });
+        const bookingId = `YH-${String(index.length + 1).padStart(6, "0")}`;
+        const booking: StoredBooking = { ...draft, booking_id: bookingId, status: "confirmed" };
+        bookings[bookingId] = booking;
+        index.push(bookingId);
+        delete locks[key];
+        await this.state.storage.put({ "booking-locks": locks, bookings, "booking-index": index });
+        return Response.json({ ok: true, booking });
+      }
+      if (url.pathname === "/booking/list") {
+        return Response.json({ ok: true, bookings: index.map((id) => bookings[id]).filter(Boolean) });
+      }
+      if (url.pathname === "/booking/cancel") {
+        const id = typeof body.bookingId === "string" ? body.bookingId : "";
+        if (bookings[id]) { bookings[id].status = "cancelled"; await this.state.storage.put("bookings", bookings); }
+        return Response.json({ ok: Boolean(bookings[id]) });
+      }
+      if (url.pathname === "/booking/queue") {
+        const queued = (await this.state.storage.get<unknown[]>("admin-inbox")) ?? [];
+        queued.push(body.booking);
+        await this.state.storage.put("admin-inbox", queued);
+        return Response.json({ ok: true });
+      }
     }
 
     return new Response("not found", { status: 404 });
