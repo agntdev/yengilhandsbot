@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Show phone number(s) and a button to share user's contact"
+              "text": "Klinika telefoni: +998 90 000 00 00.\nIsh vaqti: dushanba–shanba, 08:30–22:00."
             }
           }
         ],

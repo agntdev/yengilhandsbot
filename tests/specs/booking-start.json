@@ -1,19 +1,43 @@
 [
   {
-    "name": "🗓 Onlayn yozilish",
+    "name": "booking happy path sends a confirmation ticket",
     "steps": [
       {
         "expect": [
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Start the booking flow: choose service → date → time → name → phone → confirm"
+              "text": "Qaysi xizmat kerak?"
             }
           }
         ],
         "send": {
           "callback": "booking:start"
         }
+      },
+      {
+        "send": { "callback": "booking:service:treat" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Qabul kunini tanlang. Yakshanba kuni klinika yopiq." } }]
+      },
+      {
+        "send": { "callback": "booking:date:2099-01-06" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Bo'sh vaqtni tanlang." } }]
+      },
+      {
+        "send": { "callback": "booking:time:0830" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Ism-familiyangizni yozing." } }]
+      },
+      {
+        "send": { "text": "Dilnoza Karimova" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Telefon raqamingizni yuboring yoki yozing." } }]
+      },
+      {
+        "send": { "text": "+998901234567" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Tekshirib oling:\nXizmat: Tishni davolash\nSana: 2099-01-06\nVaqt: 08:30 (Termiz vaqti)\nShifokor: Javohir\nManzil: Termiz shahri\nTelefon: +998 90 000 00 00" } }]
+      },
+      {
+        "send": { "callback": "booking:confirm" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Yoziluvingiz tasdiqlandi.\nKod: YH-20990106-0830\nXizmat: Tishni davolash\nSana: 2099-01-06\nVaqt: 08:30 (Termiz vaqti)\nShifokor: Javohir\nManzil: Termiz shahri\nTelefon: +998 90 000 00 00" } }]
       }
     ]
   }

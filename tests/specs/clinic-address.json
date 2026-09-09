@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Show clinic address, map link and opening hours"
+              "text": "Klinikamiz Termiz shahrida joylashgan.\nIsh vaqti: dushanba–shanba, 08:30–22:00.\n\nQabulga yozilish uchun tugmani bosing."
             }
           }
         ],
