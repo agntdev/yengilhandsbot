@@ -1,0 +1,20 @@
+[
+  {
+    "name": "📍 Manzil",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Show clinic address, map link and opening hours"
+            }
+          }
+        ],
+        "send": {
+          "callback": "clinic:address"
+        }
+      }
+    ]
+  }
+]
